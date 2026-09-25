@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 
 from .core import Genome, Organism, Population, World
+from .db import Database
 from .engine import GameEngine
 from .player import PlayerProfile
 from .world import WorldMap
@@ -91,6 +92,26 @@ class GameSession:
 
     def save(self, path):
         Path(path).write_text(json.dumps(self.inspect(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def save_to_database(self, database=None):
+        """Persist the complete player-facing session state in PostgreSQL."""
+        db = database or Database()
+        db.initialize()
+        db.save_session(self.player.player_id, self.player.name, self.inspect())
+
+    @classmethod
+    def load_from_database(cls, player_id: str, database=None):
+        """Restore a session from PostgreSQL, returning None when absent."""
+        db = database or Database()
+        data = db.load_session(player_id)
+        if not data:
+            return None
+        state = data["state"]
+        player_data = state.get("player", {})
+        session = cls.new(player_id, data.get("player_name") or player_data.get("name", "Explorer"))
+        session.player.statistics.update(player_data.get("statistics", {}))
+        session.player.research_points = player_data.get("research", 0)
+        return session
 
     @staticmethod
     def load(path):
