@@ -26,7 +26,9 @@ def fitness(organism: Organism, environment) -> float:
 
 def select(population: Population, environment, fraction: float = 0.5) -> List[Organism]:
     living = population.living()
-    count = max(1, int(len(living) * fraction)) if living else 0
+    if not living:
+        return []
+    count = min(len(living), max(2 if len(living) >= 2 else 1, int(len(living) * fraction)))
     return sorted(living, key=lambda o: fitness(o, environment), reverse=True)[:count]
 
 
@@ -37,11 +39,13 @@ def reproduce_pair(a: Organism, b: Organism, child_id: str, mutation_rate=0.02, 
     child.traits = traits_from_genome(child.genome)
     return child
 
+
 @dataclass
 class Species:
     name: str
     organism_ids: List[str] = field(default_factory=list)
     generation: int = 0
+
 
 @dataclass
 class Ecosystem:
