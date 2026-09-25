@@ -56,12 +56,17 @@ class Organism:
         if self.energy <= 0 or self.health <= 0:
             self.alive = False
 
-    def reproduce(self, partner, child_id, rng=None):
+    def reproduce(self, partner, child_id, rng=None, mutation_rate=0.05):
         rng = rng or random.Random()
+        if not self.alive or not partner.alive:
+            raise ValueError("Both parents must be alive")
+        if len(self.genome.sequence) != len(partner.genome.sequence):
+            raise ValueError("Parent genomes must have equal length")
         cut = rng.randrange(1, len(self.genome.sequence))
         seq = self.genome.sequence[:cut] + partner.genome.sequence[cut:]
-        child = Genome(seq, max(self.genome.generation, partner.genome.generation) + 1)
-        return Organism(child_id, child, energy=50.0, health=100.0)
+        generation = max(self.genome.generation, partner.genome.generation) + 1
+        genome = Genome(seq, generation).mutate(mutation_rate, rng)
+        return Organism(child_id, genome, energy=50.0, health=100.0)
 
 @dataclass
 class Population:
