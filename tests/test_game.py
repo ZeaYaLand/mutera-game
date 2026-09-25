@@ -1,4 +1,6 @@
 from mutera.game import GameSession
+from mutera.core import Genome, Organism
+import random
 
 
 class FakeDatabase:
@@ -55,3 +57,13 @@ def test_database_persistence_bridge():
     assert restored is not None
     assert restored.player.name == "Explorer"
     assert restored.player.statistics["turns"] == 1
+
+
+def test_reproduction_advances_generation_and_records_mutations():
+    rng = random.Random(7)
+    parent_a = Organism("a", Genome("AAAAAAAAAAAAAAAA"))
+    parent_b = Organism("b", Genome("CCCCCCCCCCCCCCCC"))
+    child = parent_a.reproduce(parent_b, "child", rng=rng, mutation_rate=1.0)
+    assert child.genome.generation == 2
+    assert len(child.genome.mutations) == 16
+    assert all(base in "ACGT" for base in child.genome.sequence)
