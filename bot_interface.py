@@ -10,7 +10,8 @@ SESSIONS = {}
 
 def keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🧬 Организм", callback_data="inspect"), InlineKeyboardButton("🌍 Исследовать", callback_data="explore")],
+        [InlineKeyboardButton("🧬 Организм", callback_data="inspect"), InlineKeyboardButton("🧬 Геном", callback_data="genome")],
+        [InlineKeyboardButton("🌍 Исследовать", callback_data="explore"), InlineKeyboardButton("📊 Статистика", callback_data="stats")],
         [InlineKeyboardButton("🍎 Кормить", callback_data="feed"), InlineKeyboardButton("💚 Лечить", callback_data="heal")],
         [InlineKeyboardButton("▶️ Следующий ход", callback_data="act")],
     ])
@@ -22,8 +23,45 @@ def get_session(user_id):
     return SESSIONS[user_id]
 
 
+def render_inspect(session):
+    result = session.inspect()
+    o = result["organism"]
+    w = result["game"]["world"]
+    return (
+        "🧬 <b>ТВОЙ ОРГАНИЗМ</b>\n\n"
+        f"ID: <code>{o['id']}</code>\n"
+        f"Поколение: <b>{o['generation']}</b>\n"
+        f"Возраст: {o['age']}\n"
+        f"Энергия: {o['energy']:.1f}/100\n"
+        f"Здоровье: {o['health']:.1f}/100\n\n"
+        f"🌍 Живых в мире: {w['living']}\n"
+        f"🌡 Температура: {result['game']['temperature']:.1f}°C"
+    )
+
+
+def render_genome(session):
+    o = session.inspect()["organism"]
+    return f"🧬 <b>ГЕНОМ</b>\n\n<code>{o['genome']}</code>\n\nПоколение: {o['generation']}"
+
+
+def render_stats(session):
+    result = session.inspect()
+    p = result["player"]
+    g = result["game"]
+    return (
+        "📊 <b>СТАТИСТИКА</b>\n\n"
+        f"Ходов: {p['statistics'].get('turns', 0)}\n"
+        f"Исследований: {p['statistics'].get('explorations', 0)}\n"
+        f"Кормлений: {p['statistics'].get('feeds', 0)}\n"
+        f"Лечений: {p['statistics'].get('heals', 0)}\n"
+        f"Биомов открыто: {p['biomes']}\n"
+        f"Видов открыто: {p['species']}\n"
+        f"Поворот мира: {g['world']['turn']}"
+    )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    session = get_session(update.effective_user.id)
+    get_session(update.effective_user.id)
     await update.message.reply_text(
         "🧬 MUTERA\n\nПервый организм создан. Твоя эволюция начинается.",
         reply_markup=keyboard(),
@@ -37,19 +75,25 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = query.data
 
     if action == "inspect":
-        result = session.inspect()
-        text = f"🧬 MUTERA\nОрганизмов: {result['game']['world']['total']}\nЖивых: {result['game']['world']['living']}\nПоколение: {result['game']['world']['generations']}\nТемпература: {result['game']['temperature']:.1f}°C"
+        text = render_inspect(session)
+    elif action == "genome":
+        text = render_genome(session)
+    elif action == "stats":
+        text = render_stats(session)
     elif action == "explore":
-        text = session.explore()
+        result = session.explore()
+        text = f"🌍 <b>ИССЛЕДОВАНИЕ</b>\n\nКоординаты: {result['position']}\nБиом: <b>{result['biome']}</b>"
     elif action == "feed":
-        text = session.feed()
+        result = session.feed()
+        text = "🍎 Организм накормлен." if result["ok"] else f"⚠️ {result['message']}"
     elif action == "heal":
-        text = session.heal()
+        result = session.heal()
+        text = "💚 Здоровье восстановлено." if result["ok"] else f"⚠️ {result['message']}"
     else:
         result = session.act()
-        text = f"▶️ Ход {result['world']['turn']} завершён. Живых организмов: {result['world']['living']}"
+        text = f"▶️ <b>ХОД {result['world']['turn']}</b>\n\nЖивых организмов: {result['world']['living']}\nПоколение: {result['world']['generations']}"
 
-    await query.edit_message_text(text, reply_markup=keyboard())
+    await query.edit_message_text(text, reply_markup=keyboard(), parse_mode="HTML")
 
 
 def main():
