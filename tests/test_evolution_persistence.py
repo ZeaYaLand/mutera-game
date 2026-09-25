@@ -36,5 +36,5 @@ def test_reproduction_persists_lineage():
     assert db.record["child_id"] == "child-1"
     assert db.record["parent_a_id"] == "origin-1"
     assert db.record["parent_b_id"] == "origin-2"
-    assert db.record["generation"] == 1
+    assert db.record["generation"] == origin.genome.generation + 1
     assert result["evolution_id"] == 1
