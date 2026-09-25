@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import random
 from typing import Dict, List
 
 from .stage1 import Stage1Config, Stage1Simulation, PopulationStats
@@ -46,13 +45,20 @@ class Stage2Simulation(Stage1Simulation):
         seq = organism.genome.sequence
         if not seq:
             return {"foraging": 0.0, "resilience": 0.0, "reproduction": 0.0}
-        values = [int(ch) for ch in seq]
-        n = len(values)
-        thirds = max(1, n // 3)
+        # Genome sequences use nucleotide symbols. Map them to a stable
+        # ordinal scale so every trait remains in [0, 1].
+        nucleotide_value = {"A": 0, "C": 1, "G": 2, "T": 3}
+        values = [nucleotide_value.get(ch.upper(), 0) for ch in seq]
+        thirds = max(1, len(values) // 3)
+        groups = (
+            values[:thirds],
+            values[thirds:2 * thirds],
+            values[2 * thirds:],
+        )
+        names = ("foraging", "resilience", "reproduction")
         return {
-            "foraging": sum(values[:thirds]) / (9 * len(values[:thirds])),
-            "resilience": sum(values[thirds:2 * thirds]) / (9 * len(values[thirds:2 * thirds] or [1])),
-            "reproduction": sum(values[2 * thirds:]) / (9 * len(values[2 * thirds:] or [1])),
+            name: (sum(group) / (3 * len(group)) if group else 0.0)
+            for name, group in zip(names, groups)
         }
 
     def adaptive_fitness(self, organism) -> float:
@@ -78,8 +84,7 @@ class Stage2Simulation(Stage1Simulation):
         living = [o.genome.sequence for o in self.organisms if o.alive]
         if not living:
             return 0.0
-        unique = len(set(living))
-        return unique / len(living)
+        return len(set(living)) / len(living)
 
     def step(self) -> EvolutionStats:
         stats = super().step()
