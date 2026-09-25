@@ -1,0 +1,11 @@
+{
+  "project": "Mutera",
+  "stage": 0,
+  "genome": {
+    "default_length": 32,
+    "mutation_probability": 0.01
+  },
+  "organism": {
+    "starting_energy": 100.0
+  }
+}
