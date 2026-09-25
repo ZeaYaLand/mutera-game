@@ -24,7 +24,7 @@ def test_stage1_inheritance_creates_next_generation():
         reproduction_energy=0.0,
     )
     sim = Stage1Simulation(config, rng=random.Random(2))
-    sim.seed()
+    sim.seed(4)
     stats = sim.step()
     assert stats.births >= 1
     assert max(o.genome.generation for o in sim.organisms if o.alive) >= 1
@@ -38,7 +38,7 @@ def test_stage1_mutation_is_enabled_for_offspring():
         reproduction_energy=0.0,
     )
     sim = Stage1Simulation(config, rng=random.Random(3))
-    sim.seed()
+    sim.seed(2)
     parent_sequences = {o.genome.sequence for o in sim.organisms}
     sim.step()
     children = [o for o in sim.organisms if o.genome.generation > 0]
