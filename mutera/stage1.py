@@ -1,8 +1,4 @@
-"""Stage 1 population, inheritance, environment and natural selection.
-
-The Stage 0 core remains backward compatible. This module adds a deterministic,
-small-population simulation layer that can be exercised without a database.
-"""
+"""Stage 1 population, inheritance, environment and natural selection."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,8 +10,6 @@ from .core import Environment, Genome, Organism
 
 @dataclass(frozen=True)
 class Stage1Config:
-    """Rules controlling a Stage 1 population."""
-
     population_size: int = 20
     genome_length: int = 16
     mutation_rate: float = 0.02
@@ -43,8 +37,6 @@ class Stage1Config:
 
 @dataclass
 class PopulationStats:
-    """Observable state of a Stage 1 simulation after a turn."""
-
     turn: int
     population: int
     births: int
@@ -57,8 +49,6 @@ class PopulationStats:
 
 @dataclass
 class Stage1Simulation:
-    """A lightweight population simulator for Mutera Stage 1."""
-
     config: Stage1Config = field(default_factory=Stage1Config)
     environment: Environment = field(default_factory=Environment)
     rng: random.Random = field(default_factory=random.Random)
@@ -67,7 +57,6 @@ class Stage1Simulation:
     next_id: int = 0
 
     def seed(self, count: Optional[int] = None) -> List[Organism]:
-        """Create the initial population and return it."""
         count = self.config.population_size if count is None else count
         if count < 2:
             raise ValueError("count must be at least 2")
@@ -88,7 +77,6 @@ class Stage1Simulation:
         return organism
 
     def fitness(self, organism: Organism) -> float:
-        """Return a non-negative fitness value used by natural selection."""
         if not organism.alive:
             return 0.0
         age_factor = max(0.0, 1.0 - organism.age / self.config.max_age)
@@ -117,20 +105,14 @@ class Stage1Simulation:
         return child
 
     def step(self) -> PopulationStats:
-        """Advance one generation turn and apply selection/reproduction."""
         if not self.organisms:
             self.seed()
 
         before = sum(1 for o in self.organisms if o.alive)
         self.environment.turn += 1
         self.turn += 1
-
-        # Environment supplies recover between turns, then living organisms
-        # consume resources and pay the normal Stage 0 energy cost.
-        self.environment.food += self.config.food_regeneration
-        self.environment.water += self.config.water_regeneration
-        self.environment.food = min(100.0, self.environment.food)
-        self.environment.water = min(100.0, self.environment.water)
+        self.environment.food = min(100.0, self.environment.food + self.config.food_regeneration)
+        self.environment.water = min(100.0, self.environment.water + self.config.water_regeneration)
         for organism in self.organisms:
             organism.tick(self.environment)
             if organism.age >= self.config.max_age:
@@ -139,15 +121,14 @@ class Stage1Simulation:
         parents = self._eligible_parents()
         births = 0
         capacity = max(0, self.config.population_size - sum(o.alive for o in self.organisms))
+        # Once at least two eligible parents exist, fill available population
+        # capacity. Randomness still determines parent pairing and mutations.
         for _ in range(capacity):
-            # Reproduction pressure follows the best adapted survivors, while
-            # still allowing different pairs to contribute descendants.
-            if len(parents) < 2 or self.rng.random() > 0.5:
-                break
             child = self._reproduce(parents)
-            if child is not None:
-                self.organisms.append(child)
-                births += 1
+            if child is None:
+                break
+            self.organisms.append(child)
+            births += 1
 
         deaths = max(0, before - sum(1 for o in self.organisms if o.alive))
         living = [o for o in self.organisms if o.alive]
@@ -155,16 +136,7 @@ class Stage1Simulation:
         average_age = sum(o.age for o in living) / len(living) if living else 0.0
         average_energy = sum(o.energy for o in living) / len(living) if living else 0.0
         average_fitness = sum(self.fitness(o) for o in living) / len(living) if living else 0.0
-        return PopulationStats(
-            turn=self.turn,
-            population=len(living),
-            births=births,
-            deaths=deaths,
-            generation=generation,
-            average_age=average_age,
-            average_energy=average_energy,
-            average_fitness=average_fitness,
-        )
+        return PopulationStats(self.turn, len(living), births, deaths, generation, average_age, average_energy, average_fitness)
 
     def run(self, turns: int) -> List[PopulationStats]:
         if turns < 0:
