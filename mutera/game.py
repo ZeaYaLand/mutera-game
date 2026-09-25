@@ -94,8 +94,16 @@ class GameSession:
         }
         if database is not None:
             database.initialize()
+            # The genome generation includes the mutation step. The lineage
+            # record represents the reproduction event itself, so it advances
+            # exactly one generation from the parents.
+            lineage_genome = Genome(
+                child.genome.sequence,
+                max(0, child.genome.generation - 1),
+                list(child.genome.mutations),
+            )
             result["evolution_id"] = database.save_evolution(
-                child.id, parent_a.id, parent_b.id, child.genome, child.genome.mutations
+                child.id, parent_a.id, parent_b.id, lineage_genome, child.genome.mutations
             )
         return result
 
