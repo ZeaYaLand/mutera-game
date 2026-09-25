@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "migrations" / "001_initial.sql"
+EVOLUTION_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "migrations" / "002_evolution_history.sql"
 
 
 class Database:
@@ -27,13 +28,14 @@ class Database:
 
     def initialize(self):
         """Create the complete Mutera schema if it does not already exist."""
-        if not SCHEMA_PATH.exists():
-            raise RuntimeError(f"Database schema file is missing: {SCHEMA_PATH}")
-        schema = SCHEMA_PATH.read_text(encoding="utf-8")
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(schema)
-            conn.commit()
+        for path in (SCHEMA_PATH, EVOLUTION_SCHEMA_PATH):
+            if not path.exists():
+                raise RuntimeError(f"Database schema file is missing: {path}")
+            schema = path.read_text(encoding="utf-8")
+            with self.connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(schema)
+                conn.commit()
 
     def save_session(self, player_id, player_name, state):
         payload = json.dumps(state, ensure_ascii=False)
@@ -60,3 +62,27 @@ class Database:
         if not row:
             return None
         return {"player_name": row[0], "state": row[1]}
+
+    def save_evolution(self, child_id, parent_a_id, parent_b_id, genome, mutation_positions, world_id=None):
+        """Persist one reproduction event and its mutation positions atomically."""
+        positions = list(mutation_positions or [])
+        with self.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO evolution_records
+                    (world_id, child_id, parent_a_id, parent_b_id, generation, genome, mutation_positions)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
+                    RETURNING id""",
+                    (world_id, str(child_id), str(parent_a_id), str(parent_b_id),
+                     int(genome.generation), genome.sequence, json.dumps(positions)),
+                )
+                evolution_id = cur.fetchone()[0]
+                for position in positions:
+                    cur.execute(
+                        """INSERT INTO evolution_mutations
+                        (evolution_id, position, old_base, new_base)
+                        VALUES (%s, %s, %s, %s)""",
+                        (evolution_id, int(position), "?", genome.sequence[position]),
+                    )
+            conn.commit()
+        return evolution_id
