@@ -65,7 +65,10 @@ class Organism:
         cut = rng.randrange(1, len(self.genome.sequence))
         seq = self.genome.sequence[:cut] + partner.genome.sequence[cut:]
         generation = max(self.genome.generation, partner.genome.generation) + 1
-        genome = Genome(seq, generation).mutate(mutation_rate, rng)
+        # Reproduction advances the lineage by exactly one generation.
+        # Mutation changes the sequence but does not create an extra generation.
+        mutated = Genome(seq, generation).mutate(mutation_rate, rng)
+        genome = Genome(mutated.sequence, generation, mutated.mutations)
         return Organism(child_id, genome, energy=50.0, health=100.0)
 
 @dataclass
