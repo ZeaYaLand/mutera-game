@@ -6,6 +6,10 @@ independent from PostgreSQL.
 """
 import json
 import os
+from pathlib import Path
+
+
+SCHEMA_PATH = Path(__file__).resolve().parent.parent / "migrations" / "001_initial.sql"
 
 
 class Database:
@@ -22,16 +26,13 @@ class Database:
         return psycopg.connect(self.url)
 
     def initialize(self):
+        """Create the complete Mutera schema if it does not already exist."""
+        if not SCHEMA_PATH.exists():
+            raise RuntimeError(f"Database schema file is missing: {SCHEMA_PATH}")
+        schema = SCHEMA_PATH.read_text(encoding="utf-8")
         with self.connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS player_sessions (
-                        player_id TEXT PRIMARY KEY,
-                        player_name TEXT NOT NULL,
-                        state JSONB NOT NULL,
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                """)
+                cur.execute(schema)
             conn.commit()
 
     def save_session(self, player_id, player_name, state):
