@@ -72,6 +72,33 @@ class GameSession:
         self.player.increment("explorations")
         return {"ok": True, "position": position, "biome": tile.biome}
 
+    def reproduce(self, parent_a_id=None, parent_b_id=None, child_id="child-1", rng=None, mutation_rate=0.05, database=None):
+        """Create a child, append it to the population, and optionally persist its lineage."""
+        organisms = self.engine.world.populations[0].organisms
+        by_id = {organism.id: organism for organism in organisms}
+        parent_a = by_id[parent_a_id] if parent_a_id else self._origin()
+        parent_b = by_id[parent_b_id] if parent_b_id else next((o for o in organisms if o.id != parent_a.id and o.alive), None)
+        if parent_b is None:
+            raise ValueError("A second living parent is required")
+        child = parent_a.reproduce(parent_b, child_id, rng=rng, mutation_rate=mutation_rate)
+        organisms.append(child)
+        self.player.increment("organisms_created")
+        result = {
+            "ok": True,
+            "child_id": child.id,
+            "parent_a_id": parent_a.id,
+            "parent_b_id": parent_b.id,
+            "generation": child.genome.generation,
+            "genome": child.genome.sequence,
+            "mutation_positions": child.genome.mutations,
+        }
+        if database is not None:
+            database.initialize()
+            result["evolution_id"] = database.save_evolution(
+                child.id, parent_a.id, parent_b.id, child.genome, child.genome.mutations
+            )
+        return result
+
     def inspect(self):
         organism = self._origin()
         return {
